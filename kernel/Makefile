@@ -7,6 +7,7 @@ BUILDDIR ?= build
 
 objs += mailbox.o
 objs += main.o
+objs += packet.o
 objs += startup.o
 objs += string.o
 objs += uart.o

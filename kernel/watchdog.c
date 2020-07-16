@@ -10,8 +10,8 @@
 
 #define WATCHDOG_BASE       (IO_BASE + 0x00100000)
 #define WATCHDOG_RSTC       (*(volatile uint32_t *)(WATCHDOG_BASE + 0x1C))
-#define WATCHDOG_RSTS       (*(volatile uint32_t *)(WATCHDOG_BASE + 0x1C))
-#define WATCHDOG_WDOG       (*(volatile uint32_t *)(WATCHDOG_BASE + 0x1C))
+#define WATCHDOG_RSTS       (*(volatile uint32_t *)(WATCHDOG_BASE + 0x20))
+#define WATCHDOG_WDOG       (*(volatile uint32_t *)(WATCHDOG_BASE + 0x24))
 #define WATCHDOG_PASSWORD   (0x5A000000)
 #define WATCHDOG_FULL_RESET (0x00000020)
 

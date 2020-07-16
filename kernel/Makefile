@@ -18,7 +18,7 @@ deps := $(objs:%.o=%.d)
 
 ldscript := kernel.ld
 
-CFLAGS += -I. -O2 -Wall -Werror -fdata-sections -ffunction-sections
+CFLAGS += -I. -Os -Wall -Werror -fdata-sections -ffunction-sections
 LDFLAGS += --gc-sections
 
 CC := $(CROSS_COMPILE)gcc
@@ -28,7 +28,7 @@ OBJCOPY := $(CROSS_COMPILE)objcopy
 OBJDUMP := $(CROSS_COMPILE)objdump
 MKDIR := mkdir -p
 
-.PHONY: all app bootloader emulator clean
+.PHONY: all clean
 
 all: kernel8.img $(BUILDDIR)/kernel8.dump
 	@echo "Kernel build finished"

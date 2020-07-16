@@ -38,7 +38,11 @@ SECTIONS
 		__bss_end = .;
 	}
 	
-	stack = 0x1000;
+	.user_memory 0x4000 :
+	{
+		stack = .; /* Stack grows towards lower addresses */
+		base = .;
+	}
 
 	/DISCARD/ :
 	{

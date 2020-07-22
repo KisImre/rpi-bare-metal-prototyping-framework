@@ -45,6 +45,7 @@ class TestProtocol(unittest.TestCase): #pylint: disable=too-many-public-methods
     VERSION = 0x1234
     BASE = 0x1234567890abcdef
     ADDR = BASE
+    REGISTER_DATA = 0x87654321
     DATA = bytes([0, 1, 2, 3, 4, 5, 6, 7])
     RESULT = 0xfedcba0987654321
 
@@ -126,111 +127,210 @@ class TestProtocol(unittest.TestCase): #pylint: disable=too-many-public-methods
         with self.expect_protocol_error("Invalid.*argument"):
             self.protocol.get_base_address()
 
-    # read
+    # register_read
 
-    def test_read(self):
-        request = Packet().push_u16(Protocol.COMMAND_READ).push_u64(self.ADDR). \
+    def test_register_read(self):
+        request = Packet().push_u16(Protocol.COMMAND_REGISTER_READ).push_u64(self.ADDR). \
+            add_crc()
+        response = Packet().push_u16(Protocol.COMMAND_REGISTER_READ).push_u64(self.ADDR). \
+            push_u32(self.REGISTER_DATA).add_crc()
+        self.expect_transaction(request, response)
+        self.assertEqual(self.REGISTER_DATA, self.protocol.register_read(self.ADDR),
+                         "Invalid register data")
+
+    def test_register_read_crc_error(self):
+        request = Packet().push_u16(Protocol.COMMAND_REGISTER_READ).push_u64(self.ADDR). \
+            add_crc()
+        response = Packet().push_u16(Protocol.COMMAND_REGISTER_READ).push_u64(self.ADDR). \
+            push_u32(self.REGISTER_DATA).push_u8(0)
+        self.expect_transaction(request, response)
+        with self.expect_protocol_error("CRC.*response"):
+            self.protocol.register_read(self.ADDR)
+
+    def test_register_read_different_address(self):
+        request = Packet().push_u16(Protocol.COMMAND_REGISTER_READ).push_u64(self.ADDR). \
+            add_crc()
+        response = Packet().push_u16(Protocol.COMMAND_REGISTER_READ).push_u64(self.ADDR + 1). \
+            push_u32(self.REGISTER_DATA).add_crc()
+        self.expect_transaction(request, response)
+        with self.expect_protocol_error("Different.*address"):
+            self.protocol.register_read(self.ADDR)
+
+    def test_register_read_crc_target_error(self):
+        request = Packet().push_u16(Protocol.COMMAND_REGISTER_READ).push_u64(self.ADDR). \
+            add_crc()
+        response = self.create_error_packet(Protocol.ERRORCODE_INVALID_CRC)
+        self.expect_transaction(request, response)
+        with self.expect_protocol_error("CRC.*target"):
+            self.protocol.register_read(self.ADDR)
+
+    def test_register_read_invalid_arg_error(self):
+        request = Packet().push_u16(Protocol.COMMAND_REGISTER_READ).push_u64(self.ADDR). \
+            add_crc()
+        response = self.create_error_packet(Protocol.ERRORCODE_INVALID_ARG)
+        self.expect_transaction(request, response)
+        with self.expect_protocol_error("Invalid.*argument"):
+            self.protocol.register_read(self.ADDR)
+
+    # register_write
+
+    def test_register_write(self):
+        request = Packet().push_u16(Protocol.COMMAND_REGISTER_WRITE).push_u64(self.ADDR). \
+            push_u32(self.REGISTER_DATA).add_crc()
+        response = Packet().push_u16(Protocol.COMMAND_REGISTER_WRITE).push_u64(self.ADDR). \
+            push_u32(self.REGISTER_DATA).add_crc()
+        self.expect_transaction(request, response)
+        self.protocol.register_write(self.ADDR, self.REGISTER_DATA)
+
+    def test_register_write_crc_error(self):
+        request = Packet().push_u16(Protocol.COMMAND_REGISTER_WRITE).push_u64(self.ADDR). \
+            push_u32(self.REGISTER_DATA).add_crc()
+        response = Packet().push_u16(Protocol.COMMAND_REGISTER_WRITE).push_u64(self.ADDR). \
+            push_u32(self.REGISTER_DATA).push_u8(0)
+        self.expect_transaction(request, response)
+        with self.expect_protocol_error("CRC.*response"):
+            self.protocol.register_write(self.ADDR, self.REGISTER_DATA)
+
+    def test_register_write_different_address(self):
+        request = Packet().push_u16(Protocol.COMMAND_REGISTER_WRITE).push_u64(self.ADDR). \
+            push_u32(self.REGISTER_DATA).add_crc()
+        response = Packet().push_u16(Protocol.COMMAND_REGISTER_WRITE).push_u64(self.ADDR + 1). \
+            push_u32(self.REGISTER_DATA).add_crc()
+        self.expect_transaction(request, response)
+        with self.expect_protocol_error("Different.*address"):
+            self.protocol.register_write(self.ADDR, self.REGISTER_DATA)
+
+    def test_register_write_different_data(self):
+        request = Packet().push_u16(Protocol.COMMAND_REGISTER_WRITE).push_u64(self.ADDR). \
+            push_u32(self.REGISTER_DATA).add_crc()
+        response = Packet().push_u16(Protocol.COMMAND_REGISTER_WRITE).push_u64(self.ADDR). \
+            push_u32(self.REGISTER_DATA + 1).add_crc()
+        self.expect_transaction(request, response)
+        with self.expect_protocol_error("Different.*data"):
+            self.protocol.register_write(self.ADDR, self.REGISTER_DATA)
+
+    def test_register_write_crc_target_error(self):
+        request = Packet().push_u16(Protocol.COMMAND_REGISTER_WRITE).push_u64(self.ADDR). \
+            push_u32(self.REGISTER_DATA).add_crc()
+        response = self.create_error_packet(Protocol.ERRORCODE_INVALID_CRC)
+        self.expect_transaction(request, response)
+        with self.expect_protocol_error("CRC.*target"):
+            self.protocol.register_write(self.ADDR, self.REGISTER_DATA)
+
+    def test_register_write_invalid_arg_error(self):
+        request = Packet().push_u16(Protocol.COMMAND_REGISTER_WRITE).push_u64(self.ADDR). \
+            push_u32(self.REGISTER_DATA).add_crc()
+        response = self.create_error_packet(Protocol.ERRORCODE_INVALID_ARG)
+        self.expect_transaction(request, response)
+        with self.expect_protocol_error("Invalid.*argument"):
+            self.protocol.register_write(self.ADDR, self.REGISTER_DATA)
+
+    # memory_read
+
+    def test_memory_read(self):
+        request = Packet().push_u16(Protocol.COMMAND_MEMORY_READ).push_u64(self.ADDR). \
             push_u32(len(self.DATA)).add_crc()
-        response = Packet().push_u16(Protocol.COMMAND_READ).push_u64(self.ADDR). \
+        response = Packet().push_u16(Protocol.COMMAND_MEMORY_READ).push_u64(self.ADDR). \
             push_u32(len(self.DATA)).push_data(self.DATA).add_crc()
         self.expect_transaction(request, response)
-        self.assertEqual(self.protocol.read(self.ADDR, len(self.DATA)), self.DATA, "Invalid data")
+        self.assertEqual(self.protocol.memory_read(self.ADDR, len(self.DATA)), self.DATA,
+                         "Invalid data")
 
-    def test_read_crc_error(self):
-        request = Packet().push_u16(Protocol.COMMAND_READ).push_u64(self.ADDR). \
+    def test_memory_read_crc_error(self):
+        request = Packet().push_u16(Protocol.COMMAND_MEMORY_READ).push_u64(self.ADDR). \
             push_u32(len(self.DATA)).add_crc()
-        response = Packet().push_u16(Protocol.COMMAND_READ).push_u64(self.ADDR). \
+        response = Packet().push_u16(Protocol.COMMAND_MEMORY_READ).push_u64(self.ADDR). \
         push_u32(len(self.DATA)).push_data(self.DATA).push_u8(0)
         self.expect_transaction(request, response)
         with self.expect_protocol_error("CRC.*response"):
-            self.protocol.read(self.ADDR, len(self.DATA))
+            self.protocol.memory_read(self.ADDR, len(self.DATA))
 
-    def test_read_different_address(self):
-        request = Packet().push_u16(Protocol.COMMAND_READ).push_u64(self.ADDR). \
+    def test_memory_read_different_address(self):
+        request = Packet().push_u16(Protocol.COMMAND_MEMORY_READ).push_u64(self.ADDR). \
             push_u32(len(self.DATA)).add_crc()
-        response = Packet().push_u16(Protocol.COMMAND_READ).push_u64(self.ADDR + 1). \
+        response = Packet().push_u16(Protocol.COMMAND_MEMORY_READ).push_u64(self.ADDR + 1). \
             push_u32(len(self.DATA)).push_data(self.DATA).add_crc()
         self.expect_transaction(request, response)
         with self.expect_protocol_error("Different.*address"):
-            self.protocol.read(self.ADDR, len(self.DATA))
+            self.protocol.memory_read(self.ADDR, len(self.DATA))
 
-    def test_read_different_length(self):
-        request = Packet().push_u16(Protocol.COMMAND_READ).push_u64(self.ADDR). \
+    def test_memory_read_different_length(self):
+        request = Packet().push_u16(Protocol.COMMAND_MEMORY_READ).push_u64(self.ADDR). \
             push_u32(len(self.DATA)).add_crc()
-        response = Packet().push_u16(Protocol.COMMAND_READ).push_u64(self.ADDR). \
+        response = Packet().push_u16(Protocol.COMMAND_MEMORY_READ).push_u64(self.ADDR). \
             push_u32(len(self.DATA) + 1).push_data(self.DATA).add_crc()
         self.expect_transaction(request, response)
         with self.expect_protocol_error("Different.*length"):
-            self.protocol.read(self.ADDR, len(self.DATA))
+            self.protocol.memory_read(self.ADDR, len(self.DATA))
 
-    def test_read_crc_target_error(self):
-        request = Packet().push_u16(Protocol.COMMAND_READ).push_u64(self.ADDR). \
+    def test_memory_read_crc_target_error(self):
+        request = Packet().push_u16(Protocol.COMMAND_MEMORY_READ).push_u64(self.ADDR). \
             push_u32(len(self.DATA)).add_crc()
         response = TestProtocol.create_error_packet(Protocol.ERRORCODE_INVALID_CRC)
         self.expect_transaction(request, response)
         with self.expect_protocol_error("CRC.*target"):
-            self.protocol.read(self.ADDR, len(self.DATA))
+            self.protocol.memory_read(self.ADDR, len(self.DATA))
 
-    def test_read_invalid_arg_error(self):
-        request = Packet().push_u16(Protocol.COMMAND_READ).push_u64(self.ADDR). \
+    def test_memory_read_invalid_arg_error(self):
+        request = Packet().push_u16(Protocol.COMMAND_MEMORY_READ).push_u64(self.ADDR). \
         push_u32(len(self.DATA)).add_crc()
         response = TestProtocol.create_error_packet(Protocol.ERRORCODE_INVALID_ARG)
         self.expect_transaction(request, response)
         with self.expect_protocol_error("Invalid.*argument"):
-            self.protocol.read(self.ADDR, len(self.DATA))
+            self.protocol.memory_read(self.ADDR, len(self.DATA))
 
-    # write
+    # memory_write
 
-    def test_write(self):
-        request = Packet().push_u16(Protocol.COMMAND_WRITE).push_u64(self.ADDR). \
+    def test_memory_write(self):
+        request = Packet().push_u16(Protocol.COMMAND_MEMORY_WRITE).push_u64(self.ADDR). \
             push_u32(len(self.DATA)).push_data(self.DATA).add_crc()
-        response = Packet().push_u16(Protocol.COMMAND_WRITE).push_u64(self.ADDR). \
+        response = Packet().push_u16(Protocol.COMMAND_MEMORY_WRITE).push_u64(self.ADDR). \
             push_u32(len(self.DATA)).add_crc()
         self.expect_transaction(request, response)
-        self.protocol.write(self.ADDR, self.DATA)
+        self.protocol.memory_write(self.ADDR, self.DATA)
 
-    def test_write_crc_error(self):
-        request = Packet().push_u16(Protocol.COMMAND_WRITE).push_u64(self.ADDR). \
+    def test_memory_write_crc_error(self):
+        request = Packet().push_u16(Protocol.COMMAND_MEMORY_WRITE).push_u64(self.ADDR). \
             push_u32(len(self.DATA)).push_data(self.DATA).add_crc()
-        response = Packet().push_u16(Protocol.COMMAND_WRITE).push_u64(self.ADDR). \
+        response = Packet().push_u16(Protocol.COMMAND_MEMORY_WRITE).push_u64(self.ADDR). \
             push_u32(len(self.DATA)).push_u8(0)
         self.expect_transaction(request, response)
         with self.expect_protocol_error("CRC.*response"):
-            self.protocol.write(self.ADDR, self.DATA)
+            self.protocol.memory_write(self.ADDR, self.DATA)
 
-    def test_write_different_address(self):
-        request = Packet().push_u16(Protocol.COMMAND_WRITE).push_u64(self.ADDR). \
+    def test_memory_write_different_address(self):
+        request = Packet().push_u16(Protocol.COMMAND_MEMORY_WRITE).push_u64(self.ADDR). \
             push_u32(len(self.DATA)).push_data(self.DATA).add_crc()
-        response = Packet().push_u16(Protocol.COMMAND_WRITE).push_u64(self.ADDR + 1). \
+        response = Packet().push_u16(Protocol.COMMAND_MEMORY_WRITE).push_u64(self.ADDR + 1). \
             push_u32(len(self.DATA)).add_crc()
         self.expect_transaction(request, response)
         with self.expect_protocol_error("Different.*address"):
-            self.protocol.write(self.ADDR, self.DATA)
+            self.protocol.memory_write(self.ADDR, self.DATA)
 
-    def test_write_different_length(self):
-        request = Packet().push_u16(Protocol.COMMAND_WRITE).push_u64(self.ADDR). \
+    def test_memory_write_different_length(self):
+        request = Packet().push_u16(Protocol.COMMAND_MEMORY_WRITE).push_u64(self.ADDR). \
             push_u32(len(self.DATA)).push_data(self.DATA).add_crc()
-        response = Packet().push_u16(Protocol.COMMAND_WRITE).push_u64(self.ADDR). \
+        response = Packet().push_u16(Protocol.COMMAND_MEMORY_WRITE).push_u64(self.ADDR). \
             push_u32(len(self.DATA) + 1).add_crc()
         self.expect_transaction(request, response)
         with self.expect_protocol_error("Different.*length"):
-            self.protocol.write(self.ADDR, self.DATA)
+            self.protocol.memory_write(self.ADDR, self.DATA)
 
-    def test_write_crc_target_error(self):
-        request = Packet().push_u16(Protocol.COMMAND_WRITE).push_u64(self.ADDR). \
+    def test_memory_write_crc_target_error(self):
+        request = Packet().push_u16(Protocol.COMMAND_MEMORY_WRITE).push_u64(self.ADDR). \
             push_u32(len(self.DATA)).push_data(self.DATA).add_crc()
         response = TestProtocol.create_error_packet(Protocol.ERRORCODE_INVALID_CRC)
         self.expect_transaction(request, response)
         with self.expect_protocol_error("CRC.*target"):
-            self.protocol.write(self.ADDR, self.DATA)
+            self.protocol.memory_write(self.ADDR, self.DATA)
 
-    def test_write_invalid_arg_error(self):
-        request = Packet().push_u16(Protocol.COMMAND_WRITE).push_u64(self.ADDR). \
+    def test_memory_write_invalid_arg_error(self):
+        request = Packet().push_u16(Protocol.COMMAND_MEMORY_WRITE).push_u64(self.ADDR). \
             push_u32(len(self.DATA)).push_data(self.DATA).add_crc()
         response = TestProtocol.create_error_packet(Protocol.ERRORCODE_INVALID_ARG)
         self.expect_transaction(request, response)
         with self.expect_protocol_error("Invalid.*argument"):
-            self.protocol.write(self.ADDR, self.DATA)
+            self.protocol.memory_write(self.ADDR, self.DATA)
 
     # execute
 

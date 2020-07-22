@@ -14,11 +14,13 @@ class Protocol:
 
     COMMAND_GET_VERSION = 0x0000
     COMMAND_GET_BASE_ADDRESS = 0x0001
-    COMMAND_READ = 0x0002
-    COMMAND_WRITE = 0x0003
-    COMMAND_EXECUTE = 0x0004
-    COMMAND_RESET = 0x0005
-    COMMAND_ERROR = 0x0006
+    COMMAND_REGISTER_READ = 0x0010
+    COMMAND_REGISTER_WRITE = 0x0011
+    COMMAND_MEMORY_READ = 0x0020
+    COMMAND_MEMORY_WRITE = 0x0021
+    COMMAND_EXECUTE = 0x0030
+    COMMAND_RESET = 0x0040
+    COMMAND_ERROR = 0x00f0
 
     ERRORCODE_INVALID_CRC = 0x0001
     ERRORCODE_INVALID_COMMAND = 0x0002
@@ -48,26 +50,46 @@ class Protocol:
         result = self.do_transaction(Protocol.COMMAND_GET_BASE_ADDRESS, {}, response)
         return result["address"]
 
-    def read(self, address, length):
+    def register_read(self, address):
+        """ Reads data from a 32 bit register. """
+        request = {"address": {"type": Protocol.TYPE_U64, "value": address}}
+        response = {"address": {"type": Protocol.TYPE_U64},
+                    "data": {"type": Protocol.TYPE_U32}}
+        result = self.do_transaction(Protocol.COMMAND_REGISTER_READ, request, response)
+        if result["address"] != address:
+            raise self.ProtocolException("Different address in response")
+        return result["data"]
+
+    def register_write(self, address, data):
+        """ Writes data into a 32 bit register. """
+        request = {"address": {"type": Protocol.TYPE_U64, "value": address},
+                   "data": {"type": Protocol.TYPE_U32, "value": data}}
+        response = {"address": {"type": Protocol.TYPE_U64},
+                    "data": {"type": Protocol.TYPE_U32}}
+        result = self.do_transaction(Protocol.COMMAND_REGISTER_WRITE, request, response)
+        if result["address"] != address or result["data"] != data:
+            raise self.ProtocolException("Different address or data in response")
+
+    def memory_read(self, address, length):
         """ Reads data from the gives address for the specified length in bytes. """
         request = {"address": {"type": Protocol.TYPE_U64, "value": address},
                    "length": {"type": Protocol.TYPE_U32, "value": length}}
         response = {"address": {"type": Protocol.TYPE_U64},
                     "length": {"type": Protocol.TYPE_U32},
                     "data": {"type": Protocol.TYPE_DATA, "length": length}}
-        result = self.do_transaction(Protocol.COMMAND_READ, request, response)
+        result = self.do_transaction(Protocol.COMMAND_MEMORY_READ, request, response)
         if result["address"] != address or result["length"] != length:
             raise self.ProtocolException("Different address or length in response")
         return result["data"]
 
-    def write(self, address, data):
+    def memory_write(self, address, data):
         """ Writes data to the given address. """
         request = {"address": {"type": Protocol.TYPE_U64, "value": address},
                    "length": {"type": Protocol.TYPE_U32, "value": len(data)},
                    "data": {"type": Protocol.TYPE_DATA, "value": data}}
         response = {"address": {"type": Protocol.TYPE_U64},
                     "length": {"type": Protocol.TYPE_U32}}
-        result = self.do_transaction(Protocol.COMMAND_WRITE, request, response)
+        result = self.do_transaction(Protocol.COMMAND_MEMORY_WRITE, request, response)
         if result["address"] != address or result["length"] != len(data):
             raise self.ProtocolException("Different address or length in response")
 

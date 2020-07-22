@@ -10,11 +10,13 @@
 
 #define COMMAND_GET_VERSION         0x0000
 #define COMMAND_GET_BASE_ADDRESS    0x0001
-#define COMMAND_READ                0x0002
-#define COMMAND_WRITE               0x0003
-#define COMMAND_EXECUTE             0x0004
-#define COMMAND_RESET               0x0005
-#define COMMAND_ERROR               0x0006
+#define COMMAND_REGISTER_READ       0x0010
+#define COMMAND_REGISTER_WRITE      0x0011
+#define COMMAND_MEMORY_READ         0x0020
+#define COMMAND_MEMORY_WRITE        0x0021
+#define COMMAND_EXECUTE             0x0030
+#define COMMAND_RESET               0x0040
+#define COMMAND_ERROR               0x00f0
 
 #define VERSION                     0x0100
 
@@ -55,10 +57,11 @@ static uint64_t execute(uint64_t context_address) {
 }
 
 int main(void) {
-    uint16_t command = 0;
     uint64_t address = 0;
-    uint32_t length = 0;
     uint64_t result = 0;
+    uint32_t length = 0;
+    uint32_t register_data = 0;
+    uint16_t command = 0;
 
     uart_init(115200);
 
@@ -89,7 +92,46 @@ int main(void) {
                 }
                 break;
 
-            case COMMAND_READ:
+            case COMMAND_REGISTER_READ:
+                address = packet_rx_u64();
+                if (packet_rx_validate_crc()) {
+                    if ((address & 0x3U) == 0) {
+                        packet_tx_start();
+                        packet_tx_u16(command);
+                        packet_tx_u64(address);
+                        packet_tx_u32(*(volatile uint32_t *)address);
+                        packet_tx_crc();
+                    } else {
+                        /* Alignment error */
+                        send_error(ERRORCODE_INVALID_ARG);
+                    }
+                } else {
+                    send_error(ERRORCODE_INVALID_CRC);
+                }
+                break;
+
+            case COMMAND_REGISTER_WRITE:
+                address = packet_rx_u64();
+                register_data = packet_rx_u32();
+                if (packet_rx_validate_crc()) {
+                    if (address >= base_address && (address & 0x03U) == 0) {
+                        *(volatile uint32_t *)address = register_data;
+
+                        packet_tx_start();
+                        packet_tx_u16(command);
+                        packet_tx_u64(address);
+                        packet_tx_u32(register_data);
+                        packet_tx_crc();
+                    } else {
+                        /* Kernel address range or alignment error */
+                        send_error(ERRORCODE_INVALID_ARG);
+                    }
+                } else {
+                    send_error(ERRORCODE_INVALID_CRC);
+                }
+                break;
+
+            case COMMAND_MEMORY_READ:
                 address = packet_rx_u64();
                 length = packet_rx_u32();
                 if (packet_rx_validate_crc()) {
@@ -104,7 +146,7 @@ int main(void) {
                 }
                 break;
 
-            case COMMAND_WRITE:
+            case COMMAND_MEMORY_WRITE:
                 address = packet_rx_u64();
                 length = packet_rx_u32();
                 if (address >= base_address) {

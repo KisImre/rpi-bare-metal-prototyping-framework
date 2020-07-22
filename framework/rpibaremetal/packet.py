@@ -18,22 +18,27 @@ class Packet:
     def push_u8(self, value):
         """ Appends an 8 bit unsigned value to the end of the message. """
         self.data += struct.pack("B", value)
+        return self
 
     def push_u16(self, value):
         """ Appends a little endian 16 bit unsigned value to the end of the message. """
         self.data += struct.pack("<H", value)
+        return self
 
     def push_u32(self, value):
         """ Appends a little endian 32 bit unsigned value to the end of the  message. """
         self.data += struct.pack("<I", value)
+        return self
 
     def push_u64(self, value):
         """ Appends a little endian 64 bit unsigned value to the end of the message. """
         self.data += struct.pack("<Q", value)
+        return self
 
     def push_data(self, data):
         """ Appends raw data to the message. """
         self.data += data
+        return self
 
     def pop_u8(self):
         """ Returns and removes an 8 bit unsigned value from the start of the message. """
@@ -105,6 +110,7 @@ class Packet:
     def add_crc(self):
         """ Adds an 8 bit CRC to the end of the message. """
         self.push_u8(Packet.calculate_crc(self.data))
+        return self
 
     def check_crc(self):
         """ Checks if the last byte of the message is a valid CRC for the message. """

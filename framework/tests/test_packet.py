@@ -26,23 +26,23 @@ class TestPacket(unittest.TestCase): #pylint: disable=too-many-public-methods
         self.assertEqual(self.packet.get_raw_data(), bytes(data), "Invalid raw data in packet")
 
     def test_push_u8(self):
-        self.packet.push_u8(self.U8)
+        self.assertEqual(self.packet, self.packet.push_u8(self.U8))
         self.assert_packet_data(self.U8_DATA)
 
     def test_push_u16(self):
-        self.packet.push_u16(self.U16)
+        self.assertEqual(self.packet, self.packet.push_u16(self.U16))
         self.assert_packet_data(self.U16_DATA)
 
     def test_push_u32(self):
-        self.packet.push_u32(self.U32)
+        self.assertEqual(self.packet, self.packet.push_u32(self.U32))
         self.assert_packet_data(self.U32_DATA)
 
     def test_push_u64(self):
-        self.packet.push_u64(self.U64)
+        self.assertEqual(self.packet, self.packet.push_u64(self.U64))
         self.assert_packet_data(self.U64_DATA)
 
     def test_push_data(self):
-        self.packet.push_data(bytes(self.DATA))
+        self.assertEqual(self.packet, self.packet.push_data(bytes(self.DATA)))
         self.assert_packet_data(self.DATA)
 
     def test_pop_u8(self):
@@ -105,16 +105,16 @@ class TestPacket(unittest.TestCase): #pylint: disable=too-many-public-methods
 
     def test_add_crc(self):
         self.packet.push_data(bytes(self.DATA))
-        self.packet.add_crc()
+        self.assertEqual(self.packet, self.packet.add_crc())
         self.assert_packet_data(self.DATA + [self.CRC])
 
     def test_add_crc_empty(self):
-        self.packet.add_crc()
+        self.assertEqual(self.packet, self.packet.add_crc())
         self.assert_packet_data([self.EMPTY_CRC])
 
     def test_check_crc_ok(self):
         self.packet.push_data(bytes(self.DATA))
-        self.packet.add_crc()
+        self.assertEqual(self.packet, self.packet.add_crc())
         self.assertEqual(self.packet.check_crc(), True, "Invalid check_crc result")
 
     def test_check_crc_fail(self):
